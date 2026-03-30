@@ -1,6 +1,38 @@
 import './App.css';
 import { Link, Outlet, Route, Routes } from 'react-router-dom';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+}
+
+function buildCalendarWeeks(year, month) {
+  const firstOfMonth = new Date(year, month, 1);
+  const offset = (firstOfMonth.getDay() + 6) % 7;
+  const cur = new Date(year, month, 1 - offset);
+  const monthEnd = new Date(year, month + 1, 0);
+  const weeks = [];
+  while (true) {
+    const row = [];
+    for (let i = 0; i < 7; i += 1) {
+      row.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (row[0] > monthEnd) break;
+    weeks.push(row);
+  }
+  return weeks;
+}
+
+function calendarDayKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
 
 function AdminHeader() {
   return (
@@ -78,7 +110,9 @@ function AdminLayout() {
   return (
     <div className="app-shell">
       <AdminHeader />
-      <Outlet />
+      <div className="app-shell-body">
+        <Outlet />
+      </div>
     </div>
   );
 }
@@ -87,7 +121,9 @@ function TeacherLayout() {
   return (
     <div className="app-shell">
       <TeacherHeader />
-      <Outlet />
+      <div className="app-shell-body">
+        <Outlet />
+      </div>
     </div>
   );
 }
@@ -95,14 +131,14 @@ function TeacherLayout() {
 function DashboardPage() {
   return (
     <main className="admin-main-grid">
-      <Link className="panel-link" to="/calendar">
-        <section className="panel-card calendar-panel">
-          <details open>
-            <summary className="panel-summary">Calendar</summary>
-            <div className="calendar-blank-state" aria-label="Calendar placeholder" />
-          </details>
-        </section>
-      </Link>
+      <section className="panel-card calendar-panel">
+        <MonthCalendar variant="compact" />
+        <div className="calendar-panel-footer">
+          <Link className="calendar-open-full-link" to="/calendar">
+            Open full calendar
+          </Link>
+        </div>
+      </section>
 
       <section className="right-panel-layout">
         <Link className="panel-link" to="/teachers">
@@ -139,12 +175,36 @@ function DashboardPage() {
   );
 }
 
-function DetailPage({ title, children, backTo = '/', backLabel = 'Back to Dashboard' }) {
+function DetailPage({
+  title,
+  children,
+  backTo = '/',
+  backLabel = 'Back to Dashboard',
+  calendarFullscreen = false,
+}) {
   return (
-    <main className="detail-page-wrap">
-      <section className="panel-card detail-card">
-        <div className="panel-heading-row">
-          <h2 className="detail-title">{title}</h2>
+    <main
+      className={
+        calendarFullscreen ? 'detail-page-wrap detail-page-wrap--calendar' : 'detail-page-wrap'
+      }
+    >
+      <section
+        className={
+          calendarFullscreen
+            ? 'detail-card detail-card--calendar'
+            : 'panel-card detail-card'
+        }
+      >
+        <div
+          className={
+            calendarFullscreen
+              ? 'panel-heading-row calendar-page-toolbar'
+              : 'panel-heading-row'
+          }
+        >
+          <h2 className={calendarFullscreen ? 'detail-title calendar-page-title' : 'detail-title'}>
+            {title}
+          </h2>
           <Link className="back-link" to={backTo}>
             {backLabel}
           </Link>
@@ -155,23 +215,187 @@ function DetailPage({ title, children, backTo = '/', backLabel = 'Back to Dashbo
   );
 }
 
-function CalendarBlankDetails() {
+function MonthCalendar({ variant = 'compact' }) {
+  const today = new Date();
+  const [view, setView] = useState(() => ({
+    year: today.getFullYear(),
+    month: today.getMonth(),
+  }));
+
+  const { year, month } = view;
+  const isLarge = variant === 'large';
+  const showWeekColumn = isLarge;
+
+  const shiftMonth = (delta) => {
+    setView((v) => {
+      const d = new Date(v.year, v.month + delta, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  };
+
+  const shiftYear = (delta) => {
+    setView((v) => ({ ...v, year: v.year + delta }));
+  };
+
+  const goToToday = () => {
+    setView({ year: today.getFullYear(), month: today.getMonth() });
+  };
+
+  const weeks = buildCalendarWeeks(year, month);
+
+  const monthName = new Date(year, month, 1).toLocaleString('default', {
+    month: 'long',
+  });
+
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  const isTodayCell = (d) => sameDay(d, today);
+
+  const shellClass = [
+    'calendar-shell',
+    isLarge ? 'calendar-shell--large' : 'calendar-shell--compact',
+  ].join(' ');
+
+  const gridTemplateColumns = showWeekColumn
+    ? 'var(--calendar-week-col) repeat(7, minmax(0, 1fr))'
+    : 'repeat(7, minmax(0, 1fr))';
+
+  const gridTemplateRows = isLarge
+    ? `auto repeat(${weeks.length}, minmax(4rem, 1fr))`
+    : `auto repeat(${weeks.length}, minmax(2.4rem, 3.5rem))`;
+
   return (
-    <details open>
-      <summary className="panel-summary">Calendar</summary>
-      <div className="calendar-blank-state" aria-label="Calendar placeholder" />
-    </details>
+    <section className={shellClass} aria-label="Monthly calendar">
+      <header className="calendar-header">
+        <div className="calendar-nav">
+          <button
+            type="button"
+            className="calendar-nav-btn"
+            onClick={() => shiftYear(-1)}
+            aria-label="Previous year"
+          >
+            «
+          </button>
+          <button
+            type="button"
+            className="calendar-nav-btn"
+            onClick={() => shiftMonth(-1)}
+            aria-label="Previous month"
+          >
+            ‹
+          </button>
+          <h2 className="calendar-title">
+            {monthName}{' '}
+            <span className="calendar-title-year">{year}</span>
+          </h2>
+          <button
+            type="button"
+            className="calendar-nav-btn"
+            onClick={() => shiftMonth(1)}
+            aria-label="Next month"
+          >
+            ›
+          </button>
+          <button
+            type="button"
+            className="calendar-nav-btn"
+            onClick={() => shiftYear(1)}
+            aria-label="Next year"
+          >
+            »
+          </button>
+        </div>
+        <button type="button" className="calendar-today-btn" onClick={goToToday}>
+          Today
+        </button>
+      </header>
+      <div
+        className="calendar-grid-pro"
+        style={{
+          gridTemplateColumns,
+          gridTemplateRows,
+        }}
+      >
+        {showWeekColumn ? (
+          <>
+            <div className="calendar-grid-corner" aria-hidden="true" />
+            {WEEKDAY_LABELS.map((label) => (
+              <div key={label} className="calendar-day-head">
+                {label}
+              </div>
+            ))}
+            {weeks.map((week) => (
+              <Fragment key={calendarDayKey(week[0])}>
+                <div className="calendar-week-label">CW {isoWeekNumber(week[0])}</div>
+                {week.map((dayDate) => {
+                  const inMonth = dayDate.getMonth() === month;
+                  return (
+                    <div
+                      key={calendarDayKey(dayDate)}
+                      className={[
+                        'calendar-cell-pro',
+                        !inMonth ? 'is-other-month' : '',
+                        isTodayCell(dayDate) ? 'is-today' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <span className="calendar-cell-date">{dayDate.getDate()}</span>
+                    </div>
+                  );
+                })}
+              </Fragment>
+            ))}
+          </>
+        ) : (
+          <>
+            {WEEKDAY_LABELS.map((label) => (
+              <div key={label} className="calendar-day-head">
+                {label}
+              </div>
+            ))}
+            {weeks.map((week) => (
+              <Fragment key={calendarDayKey(week[0])}>
+                {week.map((dayDate) => {
+                  const inMonth = dayDate.getMonth() === month;
+                  return (
+                    <div
+                      key={calendarDayKey(dayDate)}
+                      className={[
+                        'calendar-cell-pro',
+                        !inMonth ? 'is-other-month' : '',
+                        isTodayCell(dayDate) ? 'is-today' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <span className="calendar-cell-date">{dayDate.getDate()}</span>
+                    </div>
+                  );
+                })}
+              </Fragment>
+            ))}
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
 function TeacherDashboardPage() {
   return (
     <main className="admin-main-grid teacher-dashboard">
-      <Link className="panel-link" to="/teacher/calendar">
-        <section className="panel-card calendar-panel">
-          <CalendarBlankDetails />
-        </section>
-      </Link>
+      <section className="panel-card calendar-panel">
+        <MonthCalendar variant="compact" />
+        <div className="calendar-panel-footer">
+          <Link className="calendar-open-full-link" to="/teacher/calendar">
+            Open full calendar
+          </Link>
+        </div>
+      </section>
 
       <section className="teacher-right-stack">
         <section className="panel-card teacher-section-card">
@@ -229,16 +453,16 @@ function TeacherDashboardPage() {
 
 function CalendarPage() {
   return (
-    <DetailPage title="Calendar">
-      <div className="calendar-blank-state detail-blank" aria-label="Calendar placeholder" />
+    <DetailPage title="Calendar" calendarFullscreen>
+      <MonthCalendar variant="large" />
     </DetailPage>
   );
 }
 
 function TeacherCalendarPage() {
   return (
-    <DetailPage title="Calendar" backTo="/teacher" backLabel="Back to my dashboard">
-      <div className="calendar-blank-state detail-blank" aria-label="Calendar placeholder" />
+    <DetailPage title="Calendar" backTo="/teacher" backLabel="Back to my dashboard" calendarFullscreen>
+      <MonthCalendar variant="large" />
     </DetailPage>
   );
 }
