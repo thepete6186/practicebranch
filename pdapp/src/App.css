@@ -1,8 +1,29 @@
+:root {
+  --pd-bg-base: #dfe7f0;
+  --pd-bg-mid: #e8edf4;
+  --pd-surface: #ffffff;
+  --pd-surface-muted: #f4f6f9;
+  --pd-border: #c5d0e0;
+  --pd-border-soft: #dce3ed;
+  --pd-text: #0f172a;
+  --pd-text-muted: #475569;
+  --pd-accent: #0369a1;
+  --pd-accent-hover: #0284c7;
+  --pd-header-0: #060d18;
+  --pd-header-1: #0c1a2e;
+  --pd-header-2: #102a45;
+  --pd-radius-sm: 3px;
+  --pd-radius-md: 5px;
+  --pd-radius-lg: 6px;
+  --pd-shadow-sm: 0 1px 0 rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --pd-shadow-hover: 0 1px 0 rgba(15, 23, 42, 0.05), 0 8px 20px rgba(15, 23, 42, 0.1);
+}
+
 .app-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f4f7fb;
+  background: linear-gradient(165deg, var(--pd-bg-base) 0%, var(--pd-bg-mid) 42%, #eef1f6 100%);
 }
 
 .app-shell-body {
@@ -15,8 +36,8 @@
 .admin-main-grid {
   display: grid;
   grid-template-columns: minmax(260px, 360px) 1fr;
-  gap: 1.1rem;
-  padding: 1.1rem;
+  gap: 1.25rem;
+  padding: 1.25rem;
 }
 
 .panel-link {
@@ -26,17 +47,17 @@
 }
 
 .panel-card {
-  background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e3eaf3;
-  box-shadow: 0 6px 16px rgba(17, 38, 70, 0.08);
-  padding: 1rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: var(--pd-surface);
+  border-radius: var(--pd-radius-lg);
+  border: 1px solid var(--pd-border-soft);
+  box-shadow: var(--pd-shadow-sm);
+  padding: 1rem 1.05rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .panel-link .panel-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px rgba(17, 38, 70, 0.14);
+  border-color: #b8c8dc;
+  box-shadow: var(--pd-shadow-hover);
 }
 
 .calendar-panel {
@@ -47,13 +68,13 @@
 .calendar-panel-footer {
   margin-top: 0.75rem;
   padding-top: 0.65rem;
-  border-top: 1px solid #e3eaf3;
+  border-top: 1px solid var(--pd-border-soft);
 }
 
 .calendar-open-full-link {
   font-size: 0.92rem;
   font-weight: 600;
-  color: #1f5e95;
+  color: var(--pd-accent);
   text-decoration: none;
 }
 
@@ -102,10 +123,10 @@
 }
 
 .calendar-nav-btn {
-  border: 1px solid #bdd1e5;
-  background: #f4f9fd;
-  color: #1c456c;
-  border-radius: 8px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-surface-muted);
+  color: #0f2748;
+  border-radius: var(--pd-radius-sm);
   width: 2rem;
   height: 2rem;
   font-size: 1rem;
@@ -122,10 +143,10 @@
 }
 
 .calendar-today-btn {
-  border: 1px solid #1f5e95;
-  background: #1f5e95;
+  border: 1px solid var(--pd-accent);
+  background: var(--pd-accent);
   color: #fff;
-  border-radius: 8px;
+  border-radius: var(--pd-radius-sm);
   padding: 0.45rem 0.85rem;
   font-size: 0.88rem;
   font-weight: 600;
@@ -133,7 +154,7 @@
 }
 
 .calendar-today-btn:hover {
-  background: #174972;
+  background: #075985;
 }
 
 .calendar-title {
@@ -141,7 +162,8 @@
   text-align: center;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--pd-text);
+  letter-spacing: -0.02em;
   min-width: 8rem;
 }
 
@@ -164,9 +186,9 @@
 .calendar-grid-pro {
   display: grid;
   gap: 1px;
-  background: #e5e7eb;
-  border: 1px solid #e5e7eb;
-  border-radius: 2px;
+  background: #94a3b8;
+  border: 1px solid #94a3b8;
+  border-radius: var(--pd-radius-sm);
   overflow: hidden;
   flex: 1;
   min-height: 0;
@@ -174,7 +196,7 @@
 
 .calendar-shell--compact .calendar-grid-pro {
   flex: 0 1 auto;
-  border-radius: 4px;
+  border-radius: var(--pd-radius-sm);
 }
 
 .calendar-grid-corner {
@@ -236,7 +258,7 @@
   color: #1f2937;
   line-height: 1.2;
   padding: 0.12rem 0.32rem;
-  border-radius: 999px;
+  border-radius: var(--pd-radius-sm);
 }
 
 .calendar-shell--large .calendar-cell-date {
@@ -250,9 +272,10 @@
 }
 
 .calendar-cell-pro.is-today .calendar-cell-date {
-  background: #2563eb;
+  background: linear-gradient(135deg, #0369a1, #0ea5e9);
   color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 1px 3px rgba(3, 105, 161, 0.35);
 }
 
 .panel-summary {
@@ -260,7 +283,8 @@
   cursor: pointer;
   font-size: 1.18rem;
   font-weight: 600;
-  color: #133454;
+  color: var(--pd-text);
+  letter-spacing: -0.02em;
 }
 
 .panel-summary::-webkit-details-marker {
@@ -270,9 +294,9 @@
 .calendar-blank-state {
   margin-top: 0.8rem;
   min-height: 460px;
-  border-radius: 12px;
-  border: 2px dashed #c7d7ea;
-  background: linear-gradient(180deg, #fbfdff, #f1f6fc);
+  border-radius: var(--pd-radius-md);
+  border: 1px dashed var(--pd-border);
+  background: linear-gradient(180deg, var(--pd-surface-muted), #e8ecf2);
 }
 
 .right-panel-layout {
@@ -303,14 +327,14 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #5c7590;
+  color: var(--pd-text-muted);
   font-weight: 600;
 }
 
 .teacher-info-grid dd {
   margin: 0.2rem 0 0;
   font-size: 1.05rem;
-  color: #284760;
+  color: var(--pd-text);
   font-weight: 500;
   line-height: 1.4;
 }
@@ -326,18 +350,18 @@
 }
 
 .program-block {
-  border: 1px solid #e3eaf3;
-  border-radius: 12px;
+  border: 1px solid var(--pd-border-soft);
+  border-radius: var(--pd-radius-md);
   padding: 0.75rem 0.9rem;
-  background: #fbfdff;
+  background: linear-gradient(180deg, #fafbfd, var(--pd-surface-muted));
 }
 
 .program-subtitle {
   margin: 0 0 0.55rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #1f5e95;
+  letter-spacing: 0.1em;
+  color: var(--pd-accent);
   font-weight: 700;
 }
 
@@ -347,9 +371,91 @@
   min-height: 1.25rem;
   display: grid;
   gap: 0.4rem;
-  color: #284760;
+  color: var(--pd-text-muted);
   font-size: 1.02rem;
   line-height: 1.45;
+}
+
+.program-empty-note {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.program-future-list,
+.program-past-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.program-future-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--pd-border-soft);
+}
+
+.program-future-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.program-future-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.program-event-title {
+  font-weight: 600;
+  color: var(--pd-text);
+}
+
+.program-event-when {
+  font-size: 0.88rem;
+  color: var(--pd-text-muted);
+}
+
+.program-signup-button {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  padding: 0.38rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, #0369a1, #0c4a6e);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--pd-radius-sm);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 2px 6px rgba(3, 105, 161, 0.25);
+}
+
+.program-signup-button:hover {
+  background: linear-gradient(135deg, var(--pd-accent-hover), #0369a1);
+}
+
+.program-signup-button:focus-visible {
+  outline: 2px solid var(--pd-accent-hover);
+  outline-offset: 2px;
+}
+
+.program-past-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--pd-border-soft);
+}
+
+.program-past-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .teacher-stats-card {
@@ -371,31 +477,34 @@
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #5c7590;
+  color: var(--pd-text-muted);
   font-weight: 600;
 }
 
 .teacher-stat-value {
   font-size: 1.75rem;
-  color: #153a5e;
+  color: var(--pd-text);
   font-weight: 700;
   line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .teacher-stat-hint {
   font-size: 0.85rem;
-  color: #6b849c;
+  color: #64748b;
 }
 
 .teacher-stat-divider {
   width: 1px;
   align-self: stretch;
   min-height: 3.5rem;
-  background: #d6e3f0;
+  background: var(--pd-border-soft);
 }
 
 .teacher-header-accent {
-  background: linear-gradient(135deg, #143a52, #1d5674);
+  background: linear-gradient(135deg, var(--pd-header-1), var(--pd-header-2));
+  border-bottom: 1px solid rgba(14, 165, 233, 0.2);
+  box-shadow: 0 4px 24px rgba(6, 13, 24, 0.35);
 }
 
 .panel-heading-row {
@@ -407,7 +516,9 @@
 .panel-title {
   margin: 0;
   font-size: 1.2rem;
-  color: #153a5e;
+  color: var(--pd-text);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .teacher-list,
@@ -416,14 +527,14 @@
   padding-left: 1.2rem;
   display: grid;
   gap: 0.5rem;
-  color: #284760;
+  color: var(--pd-text-muted);
   font-size: 1.05rem;
   line-height: 1.45;
 }
 
 .empty-inline-note {
   margin: 0.85rem 0 0;
-  color: #4b657e;
+  color: var(--pd-text-muted);
   font-size: 1rem;
 }
 
@@ -443,7 +554,7 @@
   flex-direction: column;
   min-height: 0;
   padding: 0.5rem 1rem 1rem;
-  background: #ffffff;
+  background: var(--pd-surface);
 }
 
 .detail-card--calendar {
@@ -471,7 +582,8 @@
 
 .calendar-page-title {
   font-size: 1.15rem;
-  color: #111827;
+  color: var(--pd-text);
+  letter-spacing: -0.02em;
 }
 
 .detail-card {
@@ -484,13 +596,15 @@
 
 .detail-title {
   margin: 0;
-  color: #153a5e;
+  color: var(--pd-text);
   font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .back-link {
   text-decoration: none;
-  color: #1f5e95;
+  color: var(--pd-accent);
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -517,7 +631,7 @@
 
 .events-empty-message {
   margin: 0;
-  color: #3f5b76;
+  color: var(--pd-text-muted);
   font-size: 1.05rem;
 }
 
@@ -527,10 +641,11 @@
 }
 
 .event-accordion-item {
-  border: 1px solid #d6e3f0;
-  border-radius: 12px;
-  background: #f8fbff;
+  border: 1px solid var(--pd-border-soft);
+  border-radius: var(--pd-radius-md);
+  background: linear-gradient(180deg, var(--pd-surface-muted), #f0f3f8);
   overflow: hidden;
+  box-shadow: var(--pd-shadow-sm);
 }
 
 .event-accordion-item summary {
@@ -540,7 +655,7 @@
   cursor: pointer;
   list-style: none;
   padding: 0.75rem 0.9rem;
-  color: #1c456c;
+  color: var(--pd-text);
   font-weight: 600;
 }
 
@@ -549,14 +664,14 @@
 }
 
 .event-accordion-content {
-  border-top: 1px solid #d6e3f0;
+  border-top: 1px solid var(--pd-border-soft);
   padding: 0.75rem 0.9rem;
-  background: #ffffff;
+  background: var(--pd-surface);
 }
 
 .event-accordion-content p {
   margin: 0;
-  color: #2d4f6f;
+  color: var(--pd-text-muted);
 }
 
 .event-accordion-content p + p {
@@ -566,23 +681,24 @@
 .event-form-card {
   display: grid;
   gap: 0.45rem;
-  border: 1px solid #d8e6f3;
-  border-radius: 12px;
+  border: 1px solid var(--pd-border-soft);
+  border-radius: var(--pd-radius-md);
   padding: 0.85rem;
-  background: #f7fbff;
+  background: var(--pd-surface-muted);
 }
 
 .event-form-card label {
-  color: #244a70;
+  color: var(--pd-text);
   font-size: 0.9rem;
   font-weight: 600;
 }
 
 .event-form-card input {
-  border: 1px solid #bdd1e5;
-  border-radius: 9px;
+  border: 1px solid var(--pd-border);
+  border-radius: var(--pd-radius-sm);
   padding: 0.55rem 0.65rem;
   font-size: 0.95rem;
+  background: var(--pd-surface);
 }
 
 .event-form-actions {
@@ -592,26 +708,28 @@
 }
 
 .event-action-button {
-  border: none;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--pd-radius-sm);
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
   font-weight: 600;
   color: #ffffff;
-  background: #1f5e95;
+  background: var(--pd-accent);
   cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
 }
 
 .event-action-button.ghost {
-  background: #5f7a94;
+  background: #475569;
+  border-color: #64748b;
 }
 
 .add-event-fab {
   width: 42px;
   height: 42px;
   border: none;
-  border-radius: 999px;
-  background: #1f5e95;
+  border-radius: var(--pd-radius-md);
+  background: linear-gradient(135deg, var(--pd-accent), #0c4a6e);
   color: #ffffff;
   font-size: 1.5rem;
   line-height: 1;
@@ -620,18 +738,20 @@
 }
 
 .add-event-fab:hover {
-  background: #174972;
+  background: linear-gradient(135deg, var(--pd-accent-hover), var(--pd-accent));
+  filter: brightness(1.03);
 }
 
 .admin-header {
-  background: linear-gradient(135deg, #0f2742, #163e65);
-  color: #f5f9ff;
+  background: linear-gradient(125deg, var(--pd-header-0) 0%, var(--pd-header-1) 40%, var(--pd-header-2) 100%);
+  color: #f1f5f9;
   padding: 1.2rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1.5rem;
-  box-shadow: 0 6px 18px rgba(15, 39, 66, 0.2);
+  box-shadow: 0 4px 24px rgba(6, 13, 24, 0.4);
+  border-bottom: 1px solid rgba(14, 165, 233, 0.15);
 }
 
 .brand-group {
@@ -644,15 +764,15 @@
   margin: 0;
   font-size: 0.74rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #b8d3ef;
+  letter-spacing: 0.1em;
+  color: #7dd3fc;
 }
 
 .brand-title {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
 }
 
 .admin-meta {
@@ -666,8 +786,9 @@
   display: flex;
   flex-direction: column;
   padding: 0.45rem 0.8rem;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--pd-radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .meta-label {
@@ -683,36 +804,36 @@
 }
 
 .sign-out-button {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
-  border-radius: 10px;
+  border-radius: var(--pd-radius-sm);
   padding: 0.7rem 1rem;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
 }
 
 .sign-out-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .sign-out-button:focus-visible {
-  outline: 2px solid #cde6ff;
+  outline: 2px solid #38bdf8;
   outline-offset: 2px;
 }
 
 .portal-switch-link {
   align-self: center;
-  color: #cde6ff;
+  color: #bae6fd;
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 600;
   padding: 0.35rem 0.5rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--pd-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 .portal-switch-link:hover {

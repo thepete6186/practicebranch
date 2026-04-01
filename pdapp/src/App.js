@@ -386,6 +386,16 @@ function MonthCalendar({ variant = 'compact' }) {
 }
 
 function TeacherDashboardPage() {
+  const [futureEvents, setFutureEvents] = useState([]);
+  const [signedUpEvents, setSignedUpEvents] = useState([]);
+
+  const handleSignUp = (eventId) => {
+    const event = futureEvents.find((e) => e.id === eventId);
+    if (!event) return;
+    setFutureEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setSignedUpEvents((prev) => [...prev, event]);
+  };
+
   return (
     <main className="admin-main-grid teacher-dashboard">
       <section className="panel-card calendar-panel">
@@ -423,8 +433,53 @@ function TeacherDashboardPage() {
         <section className="panel-card teacher-section-card">
           <div className="program-menu" aria-label="Programs">
             <div className="program-block">
+              <h3 className="program-subtitle">Future events</h3>
+              {futureEvents.length === 0 ? (
+                <p className="program-empty-note">No open events to sign up for right now.</p>
+              ) : (
+                <ul className="program-list program-future-list">
+                  {futureEvents.map((ev) => (
+                    <li key={ev.id} className="program-future-row">
+                      <div className="program-future-meta">
+                        <span className="program-event-title">{ev.name}</span>
+                        <span className="program-event-when">
+                          {new Date(ev.date + 'T12:00:00').toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                      <button type="button" className="program-signup-button" onClick={() => handleSignUp(ev.id)}>
+                        Sign up
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="program-block">
               <h3 className="program-subtitle">Signed up:</h3>
-              <ul className="program-list" />
+              {signedUpEvents.length === 0 ? (
+                <ul className="program-list" />
+              ) : (
+                <ul className="program-list program-past-list">
+                  {signedUpEvents.map((ev) => (
+                    <li key={ev.id} className="program-past-row">
+                      <span className="program-event-title">{ev.name}</span>
+                      <span className="program-event-when">
+                        {new Date(ev.date + 'T12:00:00').toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="program-block">
               <h3 className="program-subtitle">Completed:</h3>
