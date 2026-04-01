@@ -1,21 +1,31 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp } from 'firebase/app';
+import { getAnalytics, isSupported } from 'firebase/analytics';
+import { initializeFirestore } from 'firebase/firestore';
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+/**
+ * Single Firebase web app used by this CRA bundle. All Firestore reads/writes use `db` from this file
+ * (see `src/services/pdFirestore.js`). The object below is the Firebase client config (apiKey, etc.).
+ */
 const firebaseConfig = {
-  apiKey: "AIzaSyC3P5qPTqDmsdlpcMVXE_arOXxbytwRxTA",
-  authDomain: "pdapp-1e5a3.firebaseapp.com",
-  projectId: "pdapp-1e5a3",
-  storageBucket: "pdapp-1e5a3.firebasestorage.app",
-  messagingSenderId: "805337718391",
-  appId: "1:805337718391:web:e2bdaaeb66b3d12ffaf072",
-  measurementId: "G-H0WKQQ9Z1J"
+  apiKey: 'AIzaSyC3P5qPTqDmsdlpcMVXE_arOXxbytwRxTA',
+  authDomain: 'pdapp-1e5a3.firebaseapp.com',
+  projectId: 'pdapp-1e5a3',
+  storageBucket: 'pdapp-1e5a3.firebasestorage.app',
+  messagingSenderId: '805337718391',
+  appId: '1:805337718391:web:e2bdaaeb66b3d12ffaf072',
+  measurementId: 'G-H0WKQQ9Z1J',
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+export const firebaseProjectId = firebaseConfig.projectId;
+
+export const firebaseApp = initializeApp(firebaseConfig);
+// Improves reliability when the default WebChannel transport drops updates (empty snapshots after refresh).
+export const db = initializeFirestore(firebaseApp, {
+  experimentalAutoDetectLongPolling: true,
+});
+
+isSupported()
+  .then((yes) => {
+    if (yes) getAnalytics(firebaseApp);
+  })
+  .catch(() => {});

@@ -772,3 +772,262 @@
     min-width: 46%;
   }
 }
+
+.firestore-error-banner {
+  background: #fde8e8;
+  color: #9b1c1c;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #f5c2c2;
+}
+
+.events-count-pill {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.teacher-header-controls {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.teacher-picker-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 12rem;
+}
+
+.teacher-picker-select {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #c7d7ea;
+  background: #fff;
+  color: #133454;
+}
+
+.calendar-cell-pro.has-events {
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0.15rem;
+}
+
+.calendar-cell-pro.is-clickable {
+  cursor: pointer;
+}
+
+.calendar-cell-pro.is-clickable:hover {
+  box-shadow: inset 0 0 0 2px #93c5fd;
+}
+
+button.calendar-cell-pro {
+  appearance: none;
+  background: #ffffff;
+  font: inherit;
+  text-align: inherit;
+  margin: 0;
+  border: none;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.calendar-cell-pro.is-other-month.is-clickable {
+  background: #fafafa;
+}
+
+.calendar-event-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  opacity: 0.85;
+  margin-top: 0.1rem;
+}
+
+.calendar-signup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 38, 70, 0.35);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.calendar-signup-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  max-width: 440px;
+  width: 100%;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 16px 48px rgba(17, 38, 70, 0.22);
+  border: 1px solid #e3eaf3;
+}
+
+.calendar-signup-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.calendar-signup-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #133454;
+}
+
+.calendar-signup-close {
+  appearance: none;
+  border: none;
+  background: #f1f5f9;
+  color: #475569;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calendar-signup-close:hover {
+  background: #e2e8f0;
+}
+
+.calendar-signup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.calendar-signup-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e3eaf3;
+  background: #fbfdff;
+}
+
+.calendar-signup-event-name {
+  margin: 0;
+  font-weight: 600;
+  color: #133454;
+  font-size: 0.95rem;
+}
+
+.calendar-signup-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.calendar-signup-actions {
+  flex-shrink: 0;
+}
+
+.calendar-signup-empty,
+.calendar-signup-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.calendar-signup-error {
+  color: #b91c1c;
+}
+
+.teachers-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.teachers-section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #133454;
+}
+
+.teacher-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.teacher-detail-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e3eaf3;
+  background: #fbfdff;
+}
+
+.teacher-detail-name {
+  margin: 0;
+  font-weight: 700;
+  color: #133454;
+}
+
+.teacher-detail-line {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.teacher-hours-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.teacher-hours-field input {
+  width: 5rem;
+  font: inherit;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid #c7d7ea;
+}
+
+.teacher-create-form {
+  margin-top: 0;
+}
+
+.program-empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.events-page-hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #64748b;
+}
