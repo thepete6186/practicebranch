@@ -606,6 +606,11 @@
   background: #5f7a94;
 }
 
+.event-accordion-item summary button.event-action-button {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
 .event-admin-actions {
   margin-top: 0.75rem;
   display: flex;

@@ -1,6 +1,6 @@
 import './App.css';
 import { firebaseProjectId } from './firebase';
-import { Link, Outlet, Route, Routes } from 'react-router-dom';
+import { Link, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Fragment, useMemo, useState } from 'react';
 import { usePdData } from './pdDataContext';
 import {
@@ -903,6 +903,7 @@ function TeachersPage() {
 
 function EventsManagerPage({ mode }) {
   const { events, teachers } = usePdData();
+  const location = useLocation();
   const filtered = useMemo(
     () => events.filter((e) => eventMatchesListMode(mode, e)),
     [events, mode]
@@ -964,7 +965,11 @@ function EventsManagerPage({ mode }) {
     }
   };
 
-  const isAdmin = teachers.some((t) => t.role === 'Administrator');
+  // Consider this an admin view when the route is NOT the teacher portal path.
+  // This ensures the Admin dashboard shows admin-only controls even if the
+  // teachers list isn't fully populated yet.
+  const isAdminView = !String(location.pathname || '').startsWith('/teacher');
+  const isAdmin = isAdminView || teachers.some((t) => String(t.role).toLowerCase().includes('admin'));
 
   return (
     <DetailPage title={title}>
@@ -983,8 +988,27 @@ function EventsManagerPage({ mode }) {
             {filtered.map((event) => (
               <details key={event.id} className="event-accordion-item">
                 <summary>
-                  <span>{event.name}</span>
-                  <span>{formatEventDateField(event.date)}</span>
+                  <span style={{marginRight:12}}>{event.name}</span>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:8,marginLeft:'auto'}}>
+                    <span>{formatEventDateField(event.date)}</span>
+                    {isAdmin && mode === 'future' ? (
+                      <button
+                        type="button"
+                        className="event-action-button ghost"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!window.confirm('Delete this event?')) return;
+                          try {
+                            await deleteEvent(String(event.id));
+                          } catch (err) {
+                            alert('Delete failed: ' + (err?.message || err));
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
                 </summary>
                 <div className="event-accordion-content">
                   <p>
