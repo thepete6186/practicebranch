@@ -1,0 +1,3 @@
+# ignore node modules cache
+pdapp/node_modules/
+pdapp/node_modules/.cache/
