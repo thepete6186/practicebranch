@@ -4,11 +4,15 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
+  query,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
+  where,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -181,6 +185,19 @@ export async function createEvent(data) {
       'Firestore did not return the new event after save. Check rules and that the Firestore database exists for this project.'
     );
   }
+}
+
+export async function deleteEvent(eventId) {
+  // Delete event + any signups referencing it.
+  // Note: without Firebase Auth, this is not a secure authorization boundary on its own.
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'events', eventId));
+
+  const q = query(signupsCol(), where('eventId', '==', eventId));
+  const snap = await getDocs(q);
+  snap.docs.forEach((d) => batch.delete(d.ref));
+
+  await batch.commit();
 }
 
 export async function signupTeacherForEvent(teacherId, eventId) {

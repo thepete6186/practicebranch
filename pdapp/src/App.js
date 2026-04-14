@@ -8,6 +8,7 @@ import {
   calendarDayKeyFromDateField,
   createEvent,
   createTeacher,
+  deleteEvent,
   dateInputToTimestamp,
   eventMatchesListMode,
   formatEventDateField,
@@ -901,7 +902,7 @@ function TeachersPage() {
 }
 
 function EventsManagerPage({ mode }) {
-  const { events } = usePdData();
+  const { events, teachers } = usePdData();
   const filtered = useMemo(
     () => events.filter((e) => eventMatchesListMode(mode, e)),
     [events, mode]
@@ -963,6 +964,8 @@ function EventsManagerPage({ mode }) {
     }
   };
 
+  const isAdmin = teachers.some((t) => t.role === 'Administrator');
+
   return (
     <DetailPage title={title}>
       <section className="events-manager">
@@ -999,6 +1002,24 @@ function EventsManagerPage({ mode }) {
                       ? event.certification
                       : '—'}
                   </p>
+                  {isAdmin ? (
+                    <div className="event-admin-actions">
+                      <button
+                        type="button"
+                        className="event-delete-button"
+                        onClick={async () => {
+                          if (!window.confirm('Delete this event?')) return;
+                          try {
+                            await deleteEvent(String(event.id));
+                          } catch (err) {
+                            alert('Delete failed: ' + (err?.message || err));
+                          }
+                        }}
+                      >
+                        Delete Event
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </details>
             ))}
