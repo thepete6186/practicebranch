@@ -1,6 +1,24 @@
 import './App.css';
+import { firebaseProjectId } from './firebase';
 import { Link, Outlet, Route, Routes } from 'react-router-dom';
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import { usePdData } from './pdDataContext';
+import {
+  calendarDateStringFromEvent,
+  calendarDayKeyFromDateField,
+  createEvent,
+  createTeacher,
+  deleteEvent,
+  dateInputToTimestamp,
+  eventMatchesListMode,
+  formatEventDateField,
+  removeTeacherEventSignup,
+  signupTeacherForEvent,
+  todayCalendarDateString,
+  TEACHER_CAMPUSES,
+  TEACHER_ROLES,
+  updateTeacher,
+} from './services/pdFirestore';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -34,7 +52,19 @@ function calendarDayKey(d) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function AdminHeader() {
+function buildEventsByDayKey(events) {
+  const map = {};
+  events.forEach((ev) => {
+    if (!ev.date) return;
+    const k = calendarDayKeyFromDateField(ev.date);
+    if (!k) return;
+    if (!map[k]) map[k] = [];
+    map[k].push(ev);
+  });
+  return map;
+}
+
+function AdminHeader({ adminName, department }) {
   return (
     <header className="admin-header">
       <div className="brand-group">
@@ -44,18 +74,18 @@ function AdminHeader() {
 
       <div className="admin-meta">
         <div className="meta-item">
-          <span className="meta-label">Teacher</span>
-          <span className="meta-value">Jane Doe</span>
+          <span className="meta-label">Signed in as</span>
+          <span className="meta-value">{adminName}</span>
         </div>
 
         <div className="meta-item">
           <span className="meta-label">Role</span>
-          <span className="meta-value">Admin</span>
+          <span className="meta-value">Administrator</span>
         </div>
 
         <div className="meta-item">
           <span className="meta-label">Department</span>
-          <span className="meta-value">Professional Learning</span>
+          <span className="meta-value">{department}</span>
         </div>
 
         <Link className="portal-switch-link" to="/teacher">
@@ -70,7 +100,8 @@ function AdminHeader() {
   );
 }
 
-function TeacherHeader() {
+function TeacherHeader({ teachers, selectedTeacherId, onSelectTeacherId }) {
+  const selected = teachers.find((t) => t.id === selectedTeacherId);
   return (
     <header className="admin-header teacher-header-accent">
       <div className="brand-group">
@@ -78,20 +109,34 @@ function TeacherHeader() {
         <h1 className="brand-title">My Dashboard</h1>
       </div>
 
-      <div className="admin-meta">
-        <div className="meta-item">
-          <span className="meta-label">Name</span>
-          <span className="meta-value">Jane Doe</span>
-        </div>
+      <div className="admin-meta teacher-header-controls">
+        <label className="teacher-picker-label">
+          <span className="meta-label">Acting as</span>
+          <select
+            className="teacher-picker-select"
+            value={selectedTeacherId}
+            onChange={(e) => onSelectTeacherId(e.target.value)}
+            aria-label="Select teacher profile"
+          >
+            {teachers.length === 0 ? (
+              <option value="">No teachers in Firestore</option>
+            ) : null}
+            {teachers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.role})
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="meta-item">
           <span className="meta-label">Role</span>
-          <span className="meta-value">Teacher</span>
+          <span className="meta-value">{selected?.role ?? '—'}</span>
         </div>
 
         <div className="meta-item">
           <span className="meta-label">Department</span>
-          <span className="meta-value">Mathematics</span>
+          <span className="meta-value">{selected?.department ?? '—'}</span>
         </div>
 
         <Link className="portal-switch-link" to="/">
@@ -107,9 +152,22 @@ function TeacherHeader() {
 }
 
 function AdminLayout() {
+  const { teachers, firestoreError } = usePdData();
+  const adminUser = useMemo(
+    () => teachers.find((t) => t.role === 'Administrator') || null,
+    [teachers]
+  );
   return (
     <div className="app-shell">
-      <AdminHeader />
+      <AdminHeader
+        adminName={adminUser?.name ?? '—'}
+        department={adminUser?.department ?? 'Professional Learning'}
+      />
+      {firestoreError ? (
+        <div className="firestore-error-banner" role="alert">
+          Firestore (project {firebaseProjectId}): {firestoreError}
+        </div>
+      ) : null}
       <div className="app-shell-body">
         <Outlet />
       </div>
@@ -118,9 +176,19 @@ function AdminLayout() {
 }
 
 function TeacherLayout() {
+  const { teachers, selectedTeacherId, setSelectedTeacherId, firestoreError } = usePdData();
   return (
     <div className="app-shell">
-      <TeacherHeader />
+      <TeacherHeader
+        teachers={teachers}
+        selectedTeacherId={selectedTeacherId}
+        onSelectTeacherId={setSelectedTeacherId}
+      />
+      {firestoreError ? (
+        <div className="firestore-error-banner" role="alert">
+          Firestore (project {firebaseProjectId}): {firestoreError}
+        </div>
+      ) : null}
       <div className="app-shell-body">
         <Outlet />
       </div>
@@ -129,10 +197,24 @@ function TeacherLayout() {
 }
 
 function DashboardPage() {
+  const { teachers, events } = usePdData();
+  const { pastCount, futureCount } = useMemo(() => {
+    const today = todayCalendarDateString();
+    let past = 0;
+    let future = 0;
+    events.forEach((e) => {
+      const s = calendarDateStringFromEvent(e);
+      if (!s) return;
+      if (s < today) past += 1;
+      else future += 1;
+    });
+    return { pastCount: past, futureCount: future };
+  }, [events]);
+
   return (
     <main className="admin-main-grid">
       <section className="panel-card calendar-panel">
-        <MonthCalendar variant="compact" />
+        <MonthCalendar variant="compact" eventsByDayKey={buildEventsByDayKey(events)} />
         <div className="calendar-panel-footer">
           <Link className="calendar-open-full-link" to="/calendar">
             Open full calendar
@@ -146,12 +228,15 @@ function DashboardPage() {
             <div className="panel-heading-row">
               <h2 className="panel-title">Teacher View</h2>
             </div>
-            <ul className="teacher-list">
-              <li>Jane Doe</li>
-              <li>Michael Reed</li>
-              <li>Anika Patel</li>
-              <li>Jordan Kim</li>
-            </ul>
+            {teachers.length === 0 ? (
+              <p className="empty-inline-note">No teachers yet. Add some under Teacher View.</p>
+            ) : (
+              <ul className="teacher-list">
+                {teachers.map((t) => (
+                  <li key={t.id}>{t.name}</li>
+                ))}
+              </ul>
+            )}
           </section>
         </Link>
 
@@ -159,14 +244,22 @@ function DashboardPage() {
           <Link className="panel-link" to="/past-events">
             <section className="panel-card">
               <h2 className="panel-title">Past Events</h2>
-              <p className="empty-inline-note">No events yet.</p>
+              {pastCount === 0 ? (
+                <p className="empty-inline-note">No past events yet.</p>
+              ) : (
+                <p className="events-count-pill">{pastCount} event{pastCount === 1 ? '' : 's'}</p>
+              )}
             </section>
           </Link>
 
           <Link className="panel-link" to="/future-events">
             <section className="panel-card">
               <h2 className="panel-title">Future Events</h2>
-              <p className="empty-inline-note">No events yet.</p>
+              {futureCount === 0 ? (
+                <p className="empty-inline-note">No future events yet.</p>
+              ) : (
+                <p className="events-count-pill">{futureCount} event{futureCount === 1 ? '' : 's'}</p>
+              )}
             </section>
           </Link>
         </section>
@@ -190,16 +283,12 @@ function DetailPage({
     >
       <section
         className={
-          calendarFullscreen
-            ? 'detail-card detail-card--calendar'
-            : 'panel-card detail-card'
+          calendarFullscreen ? 'detail-card detail-card--calendar' : 'panel-card detail-card'
         }
       >
         <div
           className={
-            calendarFullscreen
-              ? 'panel-heading-row calendar-page-toolbar'
-              : 'panel-heading-row'
+            calendarFullscreen ? 'panel-heading-row calendar-page-toolbar' : 'panel-heading-row'
           }
         >
           <h2 className={calendarFullscreen ? 'detail-title calendar-page-title' : 'detail-title'}>
@@ -215,12 +304,21 @@ function DetailPage({
   );
 }
 
-function MonthCalendar({ variant = 'compact' }) {
+function MonthCalendar({
+  variant = 'compact',
+  eventsByDayKey = {},
+  enableEventSignup = false,
+  selectedTeacherId = '',
+  signedUpEventIds = new Set(),
+}) {
   const today = new Date();
   const [view, setView] = useState(() => ({
     year: today.getFullYear(),
     month: today.getMonth(),
   }));
+  const [pickerDay, setPickerDay] = useState(null);
+  const [signupBusyId, setSignupBusyId] = useState(null);
+  const [signupMessage, setSignupMessage] = useState(null);
 
   const { year, month } = view;
   const isLarge = variant === 'large';
@@ -266,6 +364,82 @@ function MonthCalendar({ variant = 'compact' }) {
   const gridTemplateRows = isLarge
     ? `auto repeat(${weeks.length}, minmax(4rem, 1fr))`
     : `auto repeat(${weeks.length}, minmax(2.4rem, 3.5rem))`;
+
+  const pickerKey = pickerDay ? calendarDayKey(pickerDay) : null;
+  const pickerEvents = pickerKey ? eventsByDayKey[pickerKey] || [] : [];
+
+  const handleSignup = async (eventId) => {
+    if (!selectedTeacherId) {
+      setSignupMessage('Choose a teacher profile in the header first.');
+      return;
+    }
+    setSignupMessage(null);
+    setSignupBusyId(eventId);
+    try {
+      await signupTeacherForEvent(selectedTeacherId, eventId);
+    } catch (err) {
+      setSignupMessage(err?.message || 'Could not sign up.');
+    } finally {
+      setSignupBusyId(null);
+    }
+  };
+
+  const handleCancelSignup = async (eventId) => {
+    if (!selectedTeacherId) return;
+    setSignupBusyId(eventId);
+    try {
+      await removeTeacherEventSignup(selectedTeacherId, eventId);
+    } catch (err) {
+      setSignupMessage(err?.message || 'Could not remove signup.');
+    } finally {
+      setSignupBusyId(null);
+    }
+  };
+
+  const renderCell = (dayDate, inMonth) => {
+    const key = calendarDayKey(dayDate);
+    const dayEvents = eventsByDayKey[key] || [];
+    const hasEvents = dayEvents.length > 0;
+    const interactive =
+      Boolean(enableEventSignup && selectedTeacherId && inMonth && hasEvents);
+
+    const cellClass = [
+      'calendar-cell-pro',
+      !inMonth ? 'is-other-month' : '',
+      isTodayCell(dayDate) ? 'is-today' : '',
+      hasEvents ? 'has-events' : '',
+      interactive ? 'is-clickable' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const inner = (
+      <>
+        <span className="calendar-cell-date">{dayDate.getDate()}</span>
+        {hasEvents ? <span className="calendar-event-dot" aria-hidden="true" /> : null}
+      </>
+    );
+
+    if (interactive) {
+      return (
+        <button
+          key={key}
+          type="button"
+          className={cellClass}
+          onClick={() => setPickerDay(dayDate)}
+          aria-label={`View events on ${dayDate.toDateString()}`}
+        >
+          {inner}
+        </button>
+      );
+    }
+
+    return (
+      <div key={key} className={cellClass}>
+        {inner}
+      </div>
+    );
+  };
 
   return (
     <section className={shellClass} aria-label="Monthly calendar">
@@ -319,87 +493,149 @@ function MonthCalendar({ variant = 'compact' }) {
           gridTemplateRows,
         }}
       >
-        {showWeekColumn ? (
-          <>
-            <div className="calendar-grid-corner" aria-hidden="true" />
-            {WEEKDAY_LABELS.map((label) => (
-              <div key={label} className="calendar-day-head">
-                {label}
-              </div>
-            ))}
-            {weeks.map((week) => (
-              <Fragment key={calendarDayKey(week[0])}>
-                <div className="calendar-week-label">CW {isoWeekNumber(week[0])}</div>
-                {week.map((dayDate) => {
-                  const inMonth = dayDate.getMonth() === month;
-                  return (
-                    <div
-                      key={calendarDayKey(dayDate)}
-                      className={[
-                        'calendar-cell-pro',
-                        !inMonth ? 'is-other-month' : '',
-                        isTodayCell(dayDate) ? 'is-today' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      <span className="calendar-cell-date">{dayDate.getDate()}</span>
-                    </div>
-                  );
-                })}
-              </Fragment>
-            ))}
-          </>
-        ) : (
-          <>
-            {WEEKDAY_LABELS.map((label) => (
-              <div key={label} className="calendar-day-head">
-                {label}
-              </div>
-            ))}
-            {weeks.map((week) => (
-              <Fragment key={calendarDayKey(week[0])}>
-                {week.map((dayDate) => {
-                  const inMonth = dayDate.getMonth() === month;
-                  return (
-                    <div
-                      key={calendarDayKey(dayDate)}
-                      className={[
-                        'calendar-cell-pro',
-                        !inMonth ? 'is-other-month' : '',
-                        isTodayCell(dayDate) ? 'is-today' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      <span className="calendar-cell-date">{dayDate.getDate()}</span>
-                    </div>
-                  );
-                })}
-              </Fragment>
-            ))}
-          </>
-        )}
+        {showWeekColumn ? <div className="calendar-grid-corner" aria-hidden="true" /> : null}
+        {WEEKDAY_LABELS.map((label) => (
+          <div key={label} className="calendar-day-head">
+            {label}
+          </div>
+        ))}
+        {weeks.map((week) => (
+          <Fragment key={calendarDayKey(week[0])}>
+            {showWeekColumn ? (
+              <div className="calendar-week-label">CW {isoWeekNumber(week[0])}</div>
+            ) : null}
+            {week.map((dayDate) => {
+              const inMonth = dayDate.getMonth() === month;
+              return renderCell(dayDate, inMonth);
+            })}
+          </Fragment>
+        ))}
       </div>
+
+      {pickerDay ? (
+        <div
+          className="calendar-signup-backdrop"
+          role="presentation"
+          onClick={() => setPickerDay(null)}
+        >
+          <div
+            className="calendar-signup-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Events on this day"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="calendar-signup-modal-header">
+              <h3 className="calendar-signup-modal-title">
+                {pickerDay.toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </h3>
+              <button
+                type="button"
+                className="calendar-signup-close"
+                onClick={() => setPickerDay(null)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            {pickerEvents.length === 0 ? (
+              <p className="calendar-signup-empty">No events on this day.</p>
+            ) : (
+              <ul className="calendar-signup-list">
+                {pickerEvents.map((ev) => {
+                  const signedUp = signedUpEventIds.has(ev.id);
+                  const busy = signupBusyId === ev.id;
+                  return (
+                    <li key={ev.id} className="calendar-signup-row">
+                      <div>
+                        <p className="calendar-signup-event-name">{ev.name}</p>
+                        <p className="calendar-signup-meta">
+                          {formatEventDateField(ev.date)} · {ev.hours ?? 0} h
+                          {ev.certification ? ` · ${ev.certification}` : ''}
+                        </p>
+                      </div>
+                      {enableEventSignup ? (
+                        <div className="calendar-signup-actions">
+                          {signedUp ? (
+                            <button
+                              type="button"
+                              className="event-action-button ghost"
+                              disabled={busy}
+                              onClick={() => handleCancelSignup(ev.id)}
+                            >
+                              {busy ? '…' : 'Leave'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="event-action-button"
+                              disabled={busy}
+                              onClick={() => handleSignup(ev.id)}
+                            >
+                              {busy ? '…' : 'Sign up'}
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {signupMessage ? <p className="calendar-signup-error">{signupMessage}</p> : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
 function TeacherDashboardPage() {
-  const [futureEvents, setFutureEvents] = useState([]);
-  const [signedUpEvents, setSignedUpEvents] = useState([]);
+  const {
+    events,
+    signups,
+    selectedTeacherId,
+    selectedTeacher,
+    eventsById,
+    signedUpEventIdsForSelected,
+  } = usePdData();
 
-  const handleSignUp = (eventId) => {
-    const event = futureEvents.find((e) => e.id === eventId);
-    if (!event) return;
-    setFutureEvents((prev) => prev.filter((e) => e.id !== eventId));
-    setSignedUpEvents((prev) => [...prev, event]);
-  };
+  const mySignups = useMemo(
+    () => signups.filter((s) => s.teacherId === selectedTeacherId),
+    [signups, selectedTeacherId]
+  );
+
+  const signedUpEvents = useMemo(
+    () =>
+      mySignups
+        .map((s) => eventsById.get(s.eventId))
+        .filter(Boolean),
+    [mySignups, eventsById]
+  );
+
+  const certificateCount = useMemo(
+    () => signedUpEvents.filter((e) => e.certification && String(e.certification).trim() !== '').length,
+    [signedUpEvents]
+  );
+
+  const hoursDisplay =
+    selectedTeacher && typeof selectedTeacher.hours === 'number' ? selectedTeacher.hours : 0;
 
   return (
     <main className="admin-main-grid teacher-dashboard">
       <section className="panel-card calendar-panel">
-        <MonthCalendar variant="compact" />
+        <MonthCalendar
+          variant="compact"
+          eventsByDayKey={buildEventsByDayKey(events)}
+          enableEventSignup
+          selectedTeacherId={selectedTeacherId}
+          signedUpEventIds={signedUpEventIdsForSelected}
+        />
         <div className="calendar-panel-footer">
           <Link className="calendar-open-full-link" to="/teacher/calendar">
             Open full calendar
@@ -410,24 +646,32 @@ function TeacherDashboardPage() {
       <section className="teacher-right-stack">
         <section className="panel-card teacher-section-card">
           <h2 className="panel-title">Personal information</h2>
-          <dl className="teacher-info-grid">
-            <div>
-              <dt>Full name</dt>
-              <dd>Jane Doe</dd>
-            </div>
-            <div>
-              <dt>School email</dt>
-              <dd>jane.doe@schooldistrict.edu</dd>
-            </div>
-            <div>
-              <dt>Department</dt>
-              <dd>Mathematics</dd>
-            </div>
-            <div>
-              <dt>Campus</dt>
-              <dd>Riverside High School</dd>
-            </div>
-          </dl>
+          {selectedTeacher ? (
+            <dl className="teacher-info-grid">
+              <div>
+                <dt>Full name</dt>
+                <dd>{selectedTeacher.name}</dd>
+              </div>
+              <div>
+                <dt>School email</dt>
+                <dd>{selectedTeacher.email}</dd>
+              </div>
+              <div>
+                <dt>Department</dt>
+                <dd>{selectedTeacher.department}</dd>
+              </div>
+              <div>
+                <dt>Campus</dt>
+                <dd>{selectedTeacher.campus}</dd>
+              </div>
+              <div>
+                <dt>Age</dt>
+                <dd>{selectedTeacher.age}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="empty-inline-note">Add a teacher in the admin Teacher View to get started.</p>
+          )}
         </section>
 
         <section className="panel-card teacher-section-card">
@@ -462,43 +706,33 @@ function TeacherDashboardPage() {
             <div className="program-block">
               <h3 className="program-subtitle">Signed up:</h3>
               {signedUpEvents.length === 0 ? (
-                <ul className="program-list" />
+                <p className="program-empty">Tap a date with an event on the calendar to sign up.</p>
               ) : (
-                <ul className="program-list program-past-list">
-                  {signedUpEvents.map((ev) => (
-                    <li key={ev.id} className="program-past-row">
-                      <span className="program-event-title">{ev.name}</span>
-                      <span className="program-event-when">
-                        {new Date(ev.date + 'T12:00:00').toLocaleDateString(undefined, {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </span>
-                    </li>
+                <ul className="program-list">
+                  {signedUpEvents.map((e) => (
+                    <li key={e.id}>{e.name}</li>
                   ))}
                 </ul>
               )}
             </div>
             <div className="program-block">
               <h3 className="program-subtitle">Completed:</h3>
-              <ul className="program-list" />
+              <p className="program-empty">Not tracked yet.</p>
             </div>
           </div>
         </section>
 
         <section className="panel-card teacher-stats-card">
           <div className="teacher-stat">
-            <span className="teacher-stat-label">Hours attended</span>
-            <strong className="teacher-stat-value">24.5</strong>
-            <span className="teacher-stat-hint">This school year</span>
+            <span className="teacher-stat-label">PD hours (on record)</span>
+            <strong className="teacher-stat-value">{hoursDisplay}</strong>
+            <span className="teacher-stat-hint">Stored on teacher profile</span>
           </div>
           <div className="teacher-stat-divider" aria-hidden="true" />
           <div className="teacher-stat">
-            <span className="teacher-stat-label">Certificates earned</span>
-            <strong className="teacher-stat-value">3</strong>
-            <span className="teacher-stat-hint">All time</span>
+            <span className="teacher-stat-label">Cert. events signed up</span>
+            <strong className="teacher-stat-value">{certificateCount}</strong>
+            <span className="teacher-stat-hint">Events with a certification label</span>
           </div>
         </section>
       </section>
@@ -507,185 +741,312 @@ function TeacherDashboardPage() {
 }
 
 function CalendarPage() {
+  const { events } = usePdData();
   return (
     <DetailPage title="Calendar" calendarFullscreen>
-      <MonthCalendar variant="large" />
+      <MonthCalendar variant="large" eventsByDayKey={buildEventsByDayKey(events)} />
     </DetailPage>
   );
 }
 
 function TeacherCalendarPage() {
+  const { events, selectedTeacherId, signedUpEventIdsForSelected } = usePdData();
   return (
     <DetailPage title="Calendar" backTo="/teacher" backLabel="Back to my dashboard" calendarFullscreen>
-      <MonthCalendar variant="large" />
+      <MonthCalendar
+        variant="large"
+        eventsByDayKey={buildEventsByDayKey(events)}
+        enableEventSignup
+        selectedTeacherId={selectedTeacherId}
+        signedUpEventIds={signedUpEventIdsForSelected}
+      />
     </DetailPage>
   );
 }
 
 function TeachersPage() {
-  return (
-    <DetailPage title="Teacher View">
-      <ul className="teacher-list detail-list">
-        <li>Jane Doe</li>
-        <li>Michael Reed</li>
-        <li>Anika Patel</li>
-        <li>Jordan Kim</li>
-      </ul>
-    </DetailPage>
-  );
-}
+  const { teachers } = usePdData();
+  const [name, setName] = useState('');
+  const [department, setDepartment] = useState('');
+  const [age, setAge] = useState('');
+  const [campus, setCampus] = useState(TEACHER_CAMPUSES[0]);
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('Teacher');
+  const [hours, setHours] = useState('0');
+  const [savingId, setSavingId] = useState(null);
+  const [formError, setFormError] = useState(null);
 
-function PastEventsPage() {
-  const [events, setEvents] = useState([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [eventName, setEventName] = useState('');
-  const [eventDate, setEventDate] = useState('');
-
-  const handleAddEvent = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
-    const trimmedName = eventName.trim();
-    if (!trimmedName || !eventDate) {
+    setFormError(null);
+    const trimmedName = name.trim();
+    if (!trimmedName || !department.trim() || !email.trim()) {
+      setFormError('Name, department, and email are required.');
       return;
     }
-
-    setEvents((prev) => [
-      ...prev,
-      {
-        id: `${trimmedName}-${eventDate}-${Date.now()}`,
+    const ageNum = Number(age);
+    if (!Number.isFinite(ageNum) || ageNum < 0) {
+      setFormError('Age must be a valid number.');
+      return;
+    }
+    try {
+      await createTeacher({
         name: trimmedName,
-        date: eventDate,
-      },
-    ]);
-    setEventName('');
-    setEventDate('');
-    setIsFormOpen(false);
+        department: department.trim(),
+        age: ageNum,
+        campus,
+        email: email.trim(),
+        role,
+        hours: Number(hours) || 0,
+      });
+      setName('');
+      setDepartment('');
+      setAge('');
+      setEmail('');
+      setHours('0');
+    } catch (err) {
+      setFormError(err?.message || 'Could not save teacher.');
+    }
+  };
+
+  const saveHours = async (teacherId, value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return;
+    setSavingId(teacherId);
+    try {
+      await updateTeacher(teacherId, { hours: n });
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
-    <DetailPage title="Past Events">
-      <section className="events-manager">
-        {events.length === 0 ? (
-          <p className="events-empty-message">
-            No past events yet. Click + to add an event and date.
-          </p>
+    <DetailPage title="Teacher View">
+      <section className="teachers-admin">
+        <h3 className="teachers-section-title">All teachers</h3>
+        {teachers.length === 0 ? (
+          <p className="empty-inline-note">No teachers yet. Add one with the form below.</p>
         ) : (
-          <div className="accordion-list">
-            {events.map((event) => (
-              <details key={event.id} className="event-accordion-item">
-                <summary>
-                  <span>{event.name}</span>
-                  <span>{new Date(event.date).toLocaleDateString()}</span>
-                </summary>
-                <div className="event-accordion-content">
-                  <p>
-                    <strong>Event:</strong> {event.name}
+          <ul className="teacher-detail-list">
+            {teachers.map((t) => (
+              <li key={t.id} className="teacher-detail-card">
+                <div className="teacher-detail-main">
+                  <p className="teacher-detail-name">{t.name}</p>
+                  <p className="teacher-detail-line">
+                    {t.email} · {t.department} · {t.campus}
                   </p>
-                  <p>
-                    <strong>Date:</strong> {new Date(event.date).toLocaleDateString()}
+                  <p className="teacher-detail-line">
+                    Role: {t.role} · Age: {t.age}
                   </p>
                 </div>
-              </details>
+                <label className="teacher-hours-field">
+                  Hours
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    defaultValue={t.hours ?? 0}
+                    key={`${t.id}-${t.hours}`}
+                    disabled={savingId === t.id}
+                    onBlur={(e) => saveHours(t.id, e.target.value)}
+                  />
+                </label>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
 
-        {isFormOpen ? (
-          <form className="event-form-card" onSubmit={handleAddEvent}>
-            <label htmlFor="past-event-name">Event Name</label>
-            <input
-              id="past-event-name"
-              type="text"
-              value={eventName}
-              onChange={(e) => setEventName(e.target.value)}
-              placeholder="Enter event name"
-              required
-            />
+        <h3 className="teachers-section-title">Add teacher</h3>
+        <form className="event-form-card teacher-create-form" onSubmit={handleCreate}>
+          <label htmlFor="t-name">Name</label>
+          <input
+            id="t-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
 
-            <label htmlFor="past-event-date">Date</label>
-            <input
-              id="past-event-date"
-              type="date"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-              required
-            />
+          <label htmlFor="t-dept">Department</label>
+          <input
+            id="t-dept"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            required
+          />
 
-            <div className="event-form-actions">
-              <button className="event-action-button" type="submit">
-                Add Event
-              </button>
-              <button
-                className="event-action-button ghost"
-                type="button"
-                onClick={() => setIsFormOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : null}
+          <label htmlFor="t-age">Age</label>
+          <input
+            id="t-age"
+            type="number"
+            min="0"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            required
+          />
 
-        <button
-          className="add-event-fab"
-          type="button"
-          onClick={() => setIsFormOpen((prev) => !prev)}
-          aria-label="Add past event"
-        >
-          +
-        </button>
+          <label htmlFor="t-campus">Campus</label>
+          <select id="t-campus" value={campus} onChange={(e) => setCampus(e.target.value)}>
+            {TEACHER_CAMPUSES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
+          <label htmlFor="t-email">Email</label>
+          <input id="t-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+
+          <label htmlFor="t-role">Role</label>
+          <select id="t-role" value={role} onChange={(e) => setRole(e.target.value)}>
+            {TEACHER_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+
+          <label htmlFor="t-hours">Hours (on record)</label>
+          <input
+            id="t-hours"
+            type="number"
+            min="0"
+            step="0.5"
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+          />
+
+          {formError ? <p className="calendar-signup-error">{formError}</p> : null}
+
+          <div className="event-form-actions">
+            <button className="event-action-button" type="submit">
+              Save teacher
+            </button>
+          </div>
+        </form>
       </section>
     </DetailPage>
   );
 }
 
-function FutureEventsPage() {
-  const [events, setEvents] = useState([]);
+function EventsManagerPage({ mode }) {
+  const { events, teachers } = usePdData();
+  const filtered = useMemo(
+    () => events.filter((e) => eventMatchesListMode(mode, e)),
+    [events, mode]
+  );
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [eventHours, setEventHours] = useState('1');
+  const [eventCert, setEventCert] = useState('');
+  const [formError, setFormError] = useState(null);
 
-  const handleAddEvent = (e) => {
+  const title = mode === 'past' ? 'Past Events' : 'Future Events';
+
+  const handleAddEvent = async (e) => {
     e.preventDefault();
+    setFormError(null);
     const trimmedName = eventName.trim();
     if (!trimmedName || !eventDate) {
       return;
     }
-
-    setEvents((prev) => [
-      ...prev,
-      {
-        id: `${trimmedName}-${eventDate}-${Date.now()}`,
+    const h = Number(eventHours);
+    if (!Number.isFinite(h) || h < 0) {
+      setFormError('Hours must be a valid non-negative number.');
+      return;
+    }
+    const todayStr = todayCalendarDateString();
+    if (mode === 'past' && eventDate >= todayStr) {
+      setFormError(
+        'Past events must use a date before today. For today or later, add the event under Future Events.'
+      );
+      return;
+    }
+    if (mode === 'future' && eventDate < todayStr) {
+      setFormError(
+        'Future events must use today or a later date. For earlier dates, add the event under Past Events.'
+      );
+      return;
+    }
+    try {
+      await createEvent({
         name: trimmedName,
-        date: eventDate,
-      },
-    ]);
-    setEventName('');
-    setEventDate('');
-    setIsFormOpen(false);
+        date: dateInputToTimestamp(eventDate),
+        hours: h,
+        certification: eventCert.trim(),
+      });
+      setEventName('');
+      setEventDate('');
+      setEventHours('1');
+      setEventCert('');
+      setIsFormOpen(false);
+    } catch (err) {
+      const code = err?.code;
+      const msg =
+        code === 'permission-denied'
+          ? 'Firestore blocked this write. Deploy open rules from pdapp/firestore.rules or fix security rules in the Firebase console.'
+          : err?.message || 'Could not save event.';
+      setFormError(msg);
+    }
   };
 
+  const isAdmin = teachers.some((t) => t.role === 'Administrator');
+
   return (
-    <DetailPage title="Future Events">
+    <DetailPage title={title}>
       <section className="events-manager">
-        {events.length === 0 ? (
+        <p className="events-page-hint">
+          {mode === 'past'
+            ? 'Only events dated before today appear here. Events for today or later belong under Future Events.'
+            : 'Only events dated today or later appear here. Earlier dates belong under Past Events.'}
+        </p>
+        {filtered.length === 0 ? (
           <p className="events-empty-message">
-            No future events yet. Click + to add an event and date.
+            No {mode === 'past' ? 'past' : 'future'} events yet. Click + to add one.
           </p>
         ) : (
           <div className="accordion-list">
-            {events.map((event) => (
+            {filtered.map((event) => (
               <details key={event.id} className="event-accordion-item">
                 <summary>
                   <span>{event.name}</span>
-                  <span>{new Date(event.date).toLocaleDateString()}</span>
+                  <span>{formatEventDateField(event.date)}</span>
                 </summary>
                 <div className="event-accordion-content">
                   <p>
                     <strong>Event:</strong> {event.name}
                   </p>
                   <p>
-                    <strong>Date:</strong> {new Date(event.date).toLocaleDateString()}
+                    <strong>Date:</strong> {formatEventDateField(event.date)}
                   </p>
+                  <p>
+                    <strong>Hours:</strong> {event.hours ?? 0}
+                  </p>
+                  <p>
+                    <strong>Certification:</strong>{' '}
+                    {event.certification && String(event.certification).trim() !== ''
+                      ? event.certification
+                      : '—'}
+                  </p>
+                  {isAdmin ? (
+                    <div className="event-admin-actions">
+                      <button
+                        type="button"
+                        className="event-delete-button"
+                        onClick={async () => {
+                          if (!window.confirm('Delete this event?')) return;
+                          try {
+                            await deleteEvent(String(event.id));
+                          } catch (err) {
+                            alert('Delete failed: ' + (err?.message || err));
+                          }
+                        }}
+                      >
+                        Delete Event
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </details>
             ))}
@@ -694,9 +1055,9 @@ function FutureEventsPage() {
 
         {isFormOpen ? (
           <form className="event-form-card" onSubmit={handleAddEvent}>
-            <label htmlFor="future-event-name">Event Name</label>
+            <label htmlFor={`${mode}-event-name`}>Event Name</label>
             <input
-              id="future-event-name"
+              id={`${mode}-event-name`}
               type="text"
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
@@ -704,14 +1065,36 @@ function FutureEventsPage() {
               required
             />
 
-            <label htmlFor="future-event-date">Date</label>
+            <label htmlFor={`${mode}-event-date`}>Date</label>
             <input
-              id="future-event-date"
+              id={`${mode}-event-date`}
               type="date"
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
               required
             />
+
+            <label htmlFor={`${mode}-event-hours`}>Hours</label>
+            <input
+              id={`${mode}-event-hours`}
+              type="number"
+              min="0"
+              step="0.5"
+              value={eventHours}
+              onChange={(e) => setEventHours(e.target.value)}
+              required
+            />
+
+            <label htmlFor={`${mode}-event-cert`}>Certification (optional)</label>
+            <input
+              id={`${mode}-event-cert`}
+              type="text"
+              value={eventCert}
+              onChange={(e) => setEventCert(e.target.value)}
+              placeholder="e.g. First Aid refresher"
+            />
+
+            {formError ? <p className="calendar-signup-error">{formError}</p> : null}
 
             <div className="event-form-actions">
               <button className="event-action-button" type="submit">
@@ -732,7 +1115,7 @@ function FutureEventsPage() {
           className="add-event-fab"
           type="button"
           onClick={() => setIsFormOpen((prev) => !prev)}
-          aria-label="Add future event"
+          aria-label={`Add ${mode} event`}
         >
           +
         </button>
@@ -748,8 +1131,8 @@ function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/teachers" element={<TeachersPage />} />
-        <Route path="/past-events" element={<PastEventsPage />} />
-        <Route path="/future-events" element={<FutureEventsPage />} />
+        <Route path="/past-events" element={<EventsManagerPage mode="past" />} />
+        <Route path="/future-events" element={<EventsManagerPage mode="future" />} />
       </Route>
       <Route element={<TeacherLayout />}>
         <Route path="/teacher" element={<TeacherDashboardPage />} />

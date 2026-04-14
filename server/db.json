@@ -1,0 +1,10 @@
+{
+  "teachers": [
+    { "id": 1, "name": "Alice Johnson", "department": "Math", "age": 34, "campus": "Tai Tam", "email": "alice@school.edu", "role": "Teacher", "hours": 12 },
+    { "id": 2, "name": "Brian Lee", "department": "Science", "age": 41, "campus": "Repulse Bay", "email": "brian@school.edu", "role": "Teacher", "hours": 8 }
+  ],
+  "events": [
+    { "id": 11, "name": "Workshop A", "date": "2026-03-01", "hours": 3, "certification": "Certificate A" },
+    { "id": 12, "name": "Seminar B", "date": "2026-03-10", "hours": 2, "certification": "" }
+  ]
+}
