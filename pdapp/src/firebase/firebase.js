@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { initializeFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 /**
  * Single Firebase web app used by this CRA bundle. All Firestore reads/writes use `db` from this file
@@ -19,6 +20,7 @@ const firebaseConfig = {
 export const firebaseProjectId = firebaseConfig.projectId;
 
 export const firebaseApp = initializeApp(firebaseConfig);
+export const auth = getAuth(firebaseApp);
 // Improves reliability when the default WebChannel transport drops updates (empty snapshots after refresh).
 export const db = initializeFirestore(firebaseApp, {
   experimentalAutoDetectLongPolling: true,

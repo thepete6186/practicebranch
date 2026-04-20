@@ -36,9 +36,16 @@ function coerceFirestoreTimestamp(val) {
 function mapEventDoc(d) {
   const data = d.data();
   const date = coerceFirestoreTimestamp(data.date);
+  const certifications =
+    typeof data.certifications === 'string'
+      ? data.certifications
+      : typeof data.certification === 'string'
+        ? data.certification
+        : '';
   return {
     id: d.id,
     ...data,
+    certifications,
     ...(date ? { date } : {}),
   };
 }
@@ -151,6 +158,10 @@ export function subscribeEventSignups(onData, onError) {
 }
 
 export async function createTeacher(data) {
+  const groupCode =
+    typeof data.groupCode === 'string' && data.groupCode.trim() !== ''
+      ? data.groupCode.trim()
+      : '';
   await addDoc(teachersCol(), {
     name: data.name,
     department: data.department,
@@ -159,6 +170,16 @@ export async function createTeacher(data) {
     email: data.email,
     role: data.role,
     hours: Number(data.hours) || 0,
+    groupCode,
+  });
+}
+
+export async function createAdministrator(data) {
+  await addDoc(collection(db, 'administrators'), {
+    email: data.email,
+    schoolName: data.schoolName,
+    country: data.country,
+    createdAt: serverTimestamp(),
   });
 }
 
@@ -167,16 +188,23 @@ export async function updateTeacher(teacherId, patch) {
 }
 
 export async function createEvent(data) {
-  const certification =
-    typeof data.certification === 'string' && data.certification.trim() !== ''
-      ? data.certification.trim()
+  const certifications =
+    typeof data.certifications === 'string' && data.certifications.trim() !== ''
+      ? data.certifications.trim()
+      : '';
+  const description =
+    typeof data.description === 'string' && data.description.trim() !== ''
+      ? data.description.trim()
       : '';
 
   const docRef = await addDoc(eventsCol(), {
     name: data.name,
     date: data.date,
     hours: Number(data.hours) || 0,
-    certification,
+    certifications,
+    // Keep legacy field for backward compatibility with older reads.
+    certification: certifications,
+    description,
   });
 
   const snap = await getDoc(docRef);
