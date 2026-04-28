@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  awardCompletedEventHours,
+  assignLegacyDataToDefaultGroupCode,
   subscribeEvents,
   subscribeEventSignups,
   subscribeTeachers,
@@ -26,7 +28,7 @@ function writeStoredTeacherId(id) {
 
 const PdDataContext = createContext(null);
 
-export function PdDataProvider({ children }) {
+export function PdDataProvider({ children, groupCode = '' }) {
   const [teachers, setTeachers] = useState([]);
   const [events, setEvents] = useState([]);
   const [signups, setSignups] = useState([]);
@@ -34,22 +36,38 @@ export function PdDataProvider({ children }) {
   const [selectedTeacherId, setSelectedTeacherIdState] = useState(readStoredTeacherId);
 
   useEffect(() => {
+    let cancelled = false;
     const onErr = (err) => setFirestoreError(err?.message || 'Firestore error');
     const wrap =
       (setter) =>
       (data) => {
+        if (cancelled) return;
         setFirestoreError(null);
         setter(data);
       };
-    const unsubTeachers = subscribeTeachers(wrap(setTeachers), onErr);
-    const unsubEvents = subscribeEvents(wrap(setEvents), onErr);
-    const unsubSignups = subscribeEventSignups(wrap(setSignups), onErr);
+
+    assignLegacyDataToDefaultGroupCode().catch(() => {
+      // keep app usable even if migration is blocked by rules
+    });
+
+    const unsubTeachers = subscribeTeachers(wrap(setTeachers), onErr, { groupCode });
+    const unsubEvents = subscribeEvents(wrap(setEvents), onErr, { groupCode });
+    const unsubSignups = subscribeEventSignups(wrap(setSignups), onErr, { groupCode });
     return () => {
+      cancelled = true;
       unsubTeachers();
       unsubEvents();
       unsubSignups();
     };
-  }, []);
+  }, [groupCode]);
+
+  useEffect(() => {
+    if (!groupCode) return;
+    if (!signups.length) return;
+    awardCompletedEventHours(groupCode).catch(() => {
+      // keep UI responsive even if write permissions are restricted
+    });
+  }, [groupCode, signups.length, events.length]);
 
   useEffect(() => {
     if (!teachers.length) return;
