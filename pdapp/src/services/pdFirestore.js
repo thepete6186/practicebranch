@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   query,
   serverTimestamp,
@@ -18,6 +19,32 @@ import { db } from '../firebase';
 
 export const TEACHER_CAMPUSES = ['Tai Tam', 'Repulse Bay'];
 export const TEACHER_ROLES = ['Teacher', 'Administrator'];
+export const DEFAULT_GROUP_CODE = '222222';
+export const OFFICIAL_COUNTRIES = [
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia',
+  'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium',
+  'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria',
+  'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia', 'Cameroon', 'Canada', 'Central African Republic', 'Chad',
+  'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica', "Cote d'Ivoire", 'Croatia', 'Cuba', 'Cyprus',
+  'Czechia', 'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador',
+  'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland',
+  'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea',
+  'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq',
+  'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait',
+  'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania',
+  'Luxembourg', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania',
+  'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique',
+  'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria',
+  'North Korea', 'North Macedonia', 'Norway', 'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama',
+  'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia',
+  'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino',
+  'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore',
+  'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain',
+  'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand',
+  'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda',
+  'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu',
+  'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe',
+];
 
 const teachersCol = () => collection(db, 'teachers');
 const eventsCol = () => collection(db, 'events');
@@ -122,11 +149,22 @@ export function signupDocId(eventId, teacherId) {
   return `${eventId}_${teacherId}`;
 }
 
-export function subscribeTeachers(onData, onError) {
+function groupCodeMatchesDocument(docGroupCode, activeGroupCode) {
+  const normalizedDocCode = String(docGroupCode || '').trim();
+  const normalizedActiveCode = String(activeGroupCode || '').trim();
+  if (!normalizedActiveCode) return true;
+  if (normalizedDocCode) return normalizedDocCode === normalizedActiveCode;
+  return normalizedActiveCode === DEFAULT_GROUP_CODE;
+}
+
+export function subscribeTeachers(onData, onError, options = {}) {
+  const activeGroupCode = String(options.groupCode || '').trim();
   return onSnapshot(
     teachersCol(),
     (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((row) => groupCodeMatchesDocument(row.groupCode, activeGroupCode));
       list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
       onData(list);
     },
@@ -134,11 +172,14 @@ export function subscribeTeachers(onData, onError) {
   );
 }
 
-export function subscribeEvents(onData, onError) {
+export function subscribeEvents(onData, onError, options = {}) {
+  const activeGroupCode = String(options.groupCode || '').trim();
   return onSnapshot(
     eventsCol(),
     (snap) => {
-      const list = snap.docs.map((d) => mapEventDoc(d));
+      const list = snap.docs
+        .map((d) => mapEventDoc(d))
+        .filter((row) => groupCodeMatchesDocument(row.groupCode, activeGroupCode));
       list.sort((a, b) => (eventDateMillis(b) || 0) - (eventDateMillis(a) || 0));
       onData(list);
     },
@@ -146,11 +187,14 @@ export function subscribeEvents(onData, onError) {
   );
 }
 
-export function subscribeEventSignups(onData, onError) {
+export function subscribeEventSignups(onData, onError, options = {}) {
+  const activeGroupCode = String(options.groupCode || '').trim();
   return onSnapshot(
     signupsCol(),
     (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((row) => groupCodeMatchesDocument(row.groupCode, activeGroupCode));
       onData(list);
     },
     onError
@@ -179,6 +223,7 @@ export async function createAdministrator(data) {
     email: data.email,
     schoolName: data.schoolName,
     country: data.country,
+    groupCode: data.groupCode || '',
     createdAt: serverTimestamp(),
   });
 }
@@ -205,6 +250,7 @@ export async function createEvent(data) {
     // Keep legacy field for backward compatibility with older reads.
     certification: certifications,
     description,
+    groupCode: String(data.groupCode || '').trim() || DEFAULT_GROUP_CODE,
   });
 
   const snap = await getDoc(docRef);
@@ -228,11 +274,12 @@ export async function deleteEvent(eventId) {
   await batch.commit();
 }
 
-export async function signupTeacherForEvent(teacherId, eventId) {
+export async function signupTeacherForEvent(teacherId, eventId, groupCode = DEFAULT_GROUP_CODE) {
   const id = signupDocId(eventId, teacherId);
   await setDoc(doc(db, 'eventSignups', id), {
     teacherId,
     eventId,
+    groupCode: String(groupCode || '').trim() || DEFAULT_GROUP_CODE,
     createdAt: serverTimestamp(),
   });
 }
@@ -251,4 +298,127 @@ export async function isAdministratorEmail(email) {
   const q = query(collection(db, 'administrators'), where('email', '==', email));
   const snap = await getDocs(q);
   return !snap.empty;
+}
+
+export async function administratorGroupCodeExists(groupCode) {
+  const normalized = String(groupCode || '').trim();
+  if (!normalized) return false;
+  const q = query(collection(db, 'administrators'), where('groupCode', '==', normalized));
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
+
+export async function getTeacherByEmail(email) {
+  const normalized = String(email || '').trim();
+  if (!normalized) return null;
+  const q = query(teachersCol(), where('email', '==', normalized));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const first = snap.docs[0];
+  return { id: first.id, ...first.data() };
+}
+
+export async function getAdministratorByEmail(email) {
+  const normalized = String(email || '').trim();
+  if (!normalized) return null;
+  const q = query(collection(db, 'administrators'), where('email', '==', normalized));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const first = snap.docs[0];
+  return { id: first.id, ...first.data() };
+}
+
+export async function assignLegacyDataToDefaultGroupCode(defaultCode = DEFAULT_GROUP_CODE) {
+  const normalized = String(defaultCode || '').trim();
+  if (!normalized) return;
+
+  const migrateCollection = async (colName) => {
+    const snap = await getDocs(collection(db, colName));
+    const updates = snap.docs
+      .filter((d) => {
+        const code = String(d.data()?.groupCode || '').trim();
+        return !code;
+      })
+      .map((d) => updateDoc(d.ref, { groupCode: normalized }));
+    await Promise.all(updates);
+  };
+
+  await Promise.all([
+    migrateCollection('teachers'),
+    migrateCollection('events'),
+    migrateCollection('eventSignups'),
+  ]);
+}
+
+export async function awardCompletedEventHours(groupCode = DEFAULT_GROUP_CODE) {
+  const activeGroupCode = String(groupCode || '').trim() || DEFAULT_GROUP_CODE;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const signupsSnap = await getDocs(signupsCol());
+  const pendingSignups = signupsSnap.docs.filter((signupDoc) => {
+    const data = signupDoc.data() || {};
+    if (data.hoursAwarded) return false;
+    return groupCodeMatchesDocument(data.groupCode, activeGroupCode);
+  });
+
+  if (!pendingSignups.length) return;
+
+  const eventCache = new Map();
+  const teacherCache = new Map();
+  const batch = writeBatch(db);
+  let updatesCount = 0;
+
+  for (const signupDoc of pendingSignups) {
+    const signup = signupDoc.data() || {};
+    const eventId = String(signup.eventId || '').trim();
+    const teacherId = String(signup.teacherId || '').trim();
+    if (!eventId || !teacherId) continue;
+
+    let eventData = eventCache.get(eventId);
+    if (eventData === undefined) {
+      const eventSnap = await getDoc(doc(db, 'events', eventId));
+      eventData = eventSnap.exists() ? eventSnap.data() : null;
+      eventCache.set(eventId, eventData);
+    }
+    if (!eventData) continue;
+
+    const eventDate = dateFieldToJsDate(eventData.date);
+    if (!eventDate) continue;
+    const normalizedEventDate = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    if (normalizedEventDate >= today) continue;
+
+    let teacherExists = teacherCache.get(teacherId);
+    if (teacherExists === undefined) {
+      const teacherSnap = await getDoc(doc(db, 'teachers', teacherId));
+      teacherExists = teacherSnap.exists();
+      teacherCache.set(teacherId, teacherExists);
+    }
+    if (!teacherExists) continue;
+
+    const awardedHours = Number(eventData.hours) || 0;
+    if (awardedHours <= 0) {
+      batch.update(signupDoc.ref, {
+        hoursAwarded: true,
+        awardedHours: 0,
+        awardedAt: serverTimestamp(),
+      });
+      updatesCount += 1;
+      continue;
+    }
+
+    batch.update(doc(db, 'teachers', teacherId), {
+      hours: increment(awardedHours),
+    });
+    batch.update(signupDoc.ref, {
+      hoursAwarded: true,
+      awardedHours,
+      awardedAt: serverTimestamp(),
+    });
+    updatesCount += 2;
+  }
+
+  if (updatesCount > 0) {
+    await batch.commit();
+  }
 }
