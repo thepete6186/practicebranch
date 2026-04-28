@@ -28,11 +28,38 @@ export const AuthProvider = ({ children }) => {
     }
     setLoading(false);
   }
+
+  async function signOutAndWait() {
+    try {
+      await auth.signOut();
+    } catch (e) {
+      // ignore error
+    }
+    // wait for onAuthStateChanged to report null or timeout
+    return new Promise((resolve) => {
+      let done = false;
+      const unsub = onAuthStateChanged(auth, (u) => {
+        if (!u && !done) {
+          done = true;
+          unsub();
+          resolve();
+        }
+      });
+      setTimeout(() => {
+        if (!done) {
+          done = true;
+          try { unsub(); } catch {}
+          resolve();
+        }
+      }, 3000);
+    });
+  }
   const value = {
     currentUser,
     userLoggedIn,
     loading,
     initializeUser,
+  signOut: signOutAndWait,
   };
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 };

@@ -240,3 +240,15 @@ export async function signupTeacherForEvent(teacherId, eventId) {
 export async function removeTeacherEventSignup(teacherId, eventId) {
   await deleteDoc(doc(db, 'eventSignups', signupDocId(eventId, teacherId)));
 }
+
+export async function deleteTeacher(teacherId) {
+  await deleteDoc(doc(db, 'teachers', teacherId));
+}
+
+/** Check administrators collection for a matching email */
+export async function isAdministratorEmail(email) {
+  if (!email) return false;
+  const q = query(collection(db, 'administrators'), where('email', '==', email));
+  const snap = await getDocs(q);
+  return !snap.empty;
+}

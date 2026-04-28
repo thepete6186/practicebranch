@@ -1,12 +1,19 @@
 import './AuthFlow.css';
 import { useState } from 'react';
 import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { doSignout } from './firebase/auth';
 import { useAuth } from './contexts/authContext';
 import {
   doCreateUserWithEmailAndPassword,
   doSignInWithEmailAndPassword,
 } from './firebase/auth';
-import { createAdministrator, createTeacher, TEACHER_CAMPUSES } from './services/pdFirestore';
+import {
+  createAdministrator,
+  createTeacher,
+  TEACHER_CAMPUSES,
+  updateTeacher,
+} from './services/pdFirestore';
+import { PdDataProvider, usePdData } from './pdDataContext';
 
 function normalizeSixDigitGroupCode(raw) {
   const digits = String(raw ?? '').replace(/\D/g, '').slice(0, 6);
@@ -18,7 +25,7 @@ function RoleChooserPage() {
   const { userLoggedIn, loading } = useAuth();
   if (loading) return null;
   if (userLoggedIn) {
-    return <Navigate to="/welcome" replace />;
+    return <Navigate to="/app" replace />;
   }
   return (
     <main className="auth-landing">
@@ -101,7 +108,7 @@ function RoleAuthPage({ role }) {
         await doSignInWithEmailAndPassword(email.trim(), password);
         setMessage('Signed in successfully.');
       }
-      navigate('/welcome');
+  navigate('/app');
     } catch (err) {
       setError(err?.message || 'Authentication failed.');
     } finally {
@@ -238,27 +245,173 @@ function RoleAuthPage({ role }) {
 }
 
 function WelcomePage() {
+  const navigate = useNavigate();
+
+  const handleBackToStart = async () => {
+    try {
+      await doSignout();
+    } catch (err) {
+      // ignore signout errors but still navigate back
+    }
+    navigate('/', { replace: true });
+  };
+
   return (
     <main className="auth-landing">
       <section className="auth-card">
         <h1 className="auth-title">Signed In</h1>
         <p className="auth-subtitle">Authentication is complete. Dashboard views are currently disabled.</p>
-        <Link className="back-link" to="/">
+        <button type="button" className="back-link" onClick={handleBackToStart}>
           Back to start
-        </Link>
+        </button>
       </section>
     </main>
   );
 }
 
 function App() {
+  const navigate = useNavigate();
+
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (e) {
+      // fallback
+      try { await doSignout(); } catch {}
+    }
+    try {
+      localStorage.removeItem('pdapp_selected_teacher_id');
+    } catch {}
+    navigate('/', { replace: true });
+  };
+
   return (
-    <Routes>
+    <div>
+      <header style={{padding:12,borderBottom:'1px solid #eee',display:'flex',justifyContent:'flex-end'}}>
+        <button onClick={handleSignOut}>Sign out</button>
+      </header>
+      <Routes>
       <Route path="/" element={<RoleChooserPage />} />
       <Route path="/auth/admin" element={<RoleAuthPage role="admin" />} />
       <Route path="/auth/teacher" element={<RoleAuthPage role="teacher" />} />
-      <Route path="/welcome" element={<WelcomePage />} />
-    </Routes>
+  <Route path="/welcome" element={<WelcomePage />} />
+      <Route path="/app" element={<DashboardPage />} />
+      </Routes>
+    </div>
+  );
+}
+
+function DashboardPage() {
+  return (
+    <PdDataProvider>
+      <DashboardInner />
+    </PdDataProvider>
+  );
+}
+
+function DashboardInner() {
+  const { teachers, selectedTeacherId, setSelectedTeacherId, selectedTeacher } = usePdData();
+  const [division, setDivision] = useState('All');
+
+  return (
+    <div className="app-layout" style={{ display: 'grid', gridTemplateColumns: '220px 360px 1fr', gap: 16, padding: 16 }}>
+      <nav style={{ borderRight: '1px solid #eee', paddingRight: 12 }}>
+        <h3>Divisions</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {['All', 'Elementary', 'Secondary', 'Languages'].map((d) => (
+            <button key={d} onClick={() => setDivision(d)} style={{ textAlign: 'left' }}>
+              {d}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <aside style={{ borderRight: '1px solid #eee', paddingRight: 8 }}>
+        <TeacherList teachers={teachers} selectedId={selectedTeacherId} onSelect={setSelectedTeacherId} filterDept={division} />
+      </aside>
+
+      <main>
+        <TeacherProfile teacher={selectedTeacher} />
+      </main>
+    </div>
+  );
+}
+
+function TeacherList({ teachers = [], selectedId, onSelect, filterDept = 'All' }) {
+  const list = (teachers || []).filter((t) => {
+    if (!t) return false;
+    if (filterDept === 'All') return t.role === 'Teacher';
+    return t.department && t.department.includes(filterDept) && t.role === 'Teacher';
+  });
+
+  return (
+    <div>
+      <h4>Teachers</h4>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {list.map((t) => (
+          <li key={t.id} style={{ marginBottom: 8 }}>
+            <button
+              onClick={() => onSelect(t.id)}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '8px 10px',
+                background: t.id === selectedId ? '#eef' : 'transparent',
+                border: '1px solid #ddd',
+                borderRadius: 4,
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>{t.name}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>{t.department || '—'}</div>
+              <div style={{ fontSize: 12, color: '#333' }}>{(t.hours || 0) + ' hours'}</div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TeacherProfile({ teacher }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!teacher) {
+    return <div>Select a teacher to view their profile.</div>;
+  }
+
+  const changeHours = async (delta) => {
+    setError('');
+    setBusy(true);
+    try {
+      const current = Number(teacher.hours || 0);
+      const updated = Math.max(0, current + delta);
+      await updateTeacher(teacher.id, { hours: updated });
+    } catch (err) {
+      setError(err?.message || 'Failed to update hours');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section>
+      <h3>{teacher.name}</h3>
+      <p><strong>Department:</strong> {teacher.department || '—'}</p>
+      <p><strong>Campus:</strong> {teacher.campus || '—'}</p>
+      <p><strong>Email:</strong> {teacher.email || '—'}</p>
+      <p><strong>PD hours:</strong> {(teacher.hours || 0)}</p>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => changeHours(1)} disabled={busy}>+1 hour</button>
+        <button onClick={() => changeHours(2)} disabled={busy}>+2 hours</button>
+        <button onClick={() => changeHours(-1)} disabled={busy}>-1 hour</button>
+      </div>
+
+      {error ? <p style={{ color: 'red' }}>{error}</p> : null}
+    </section>
   );
 }
 
