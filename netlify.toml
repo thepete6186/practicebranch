@@ -1,0 +1,4 @@
+[build]
+  base = "pdapp"
+  command = "npm run build"
+  publish = "build"
