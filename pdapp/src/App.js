@@ -336,6 +336,14 @@ function App() {
   const navigate = useNavigate();
 
   const { signOut, currentUser } = useAuth();
+  // read firestoreError from PdDataProvider to show a top-level banner when Firestore
+  // access is failing (permission denied or config mismatch).
+  const { firestoreError } = usePdData();
+  const [visibleFsError, setVisibleFsError] = useState(Boolean(firestoreError));
+
+  useEffect(() => {
+    setVisibleFsError(Boolean(firestoreError));
+  }, [firestoreError]);
   const [activeGroupCode, setActiveGroupCode] = useState(DEFAULT_GROUP_CODE);
 
   useEffect(() => {
@@ -384,6 +392,24 @@ function App() {
   };
 
   return (
+    <>
+      {visibleFsError ? (
+        <div className="fs-error-banner" role="alert">
+          <div className="fs-error-copy">
+            <strong>Data access problem:</strong> {firestoreError}
+            <div style={{ marginTop: 6 }}>
+              If you recently deployed this app, verify the Firebase project configuration and Firestore rules.
+            </div>
+          </div>
+          <button
+            className="fs-error-dismiss"
+            aria-label="Dismiss Firestore error"
+            onClick={() => setVisibleFsError(false)}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
     <Routes>
       <Route path="/" element={<RoleChooserPage />} />
       <Route path="/auth/admin" element={<RoleAuthPage role="admin" />} />
@@ -404,6 +430,7 @@ function App() {
         <Route path="/teacher/future-events" element={<TeacherFutureEventsPage groupCode={activeGroupCode} />} />
       </Route>
     </Routes>
+  </>
   );
 }
 

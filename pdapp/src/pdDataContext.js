@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './contexts/authContext';
 import {
   awardCompletedEventHours,
   assignLegacyDataToDefaultGroupCode,
@@ -29,6 +30,7 @@ function writeStoredTeacherId(id) {
 const PdDataContext = createContext(null);
 
 export function PdDataProvider({ children, groupCode = '' }) {
+  const { userLoggedIn, loading: authLoading } = useAuth();
   const [teachers, setTeachers] = useState([]);
   const [events, setEvents] = useState([]);
   const [signups, setSignups] = useState([]);
@@ -36,8 +38,20 @@ export function PdDataProvider({ children, groupCode = '' }) {
   const [selectedTeacherId, setSelectedTeacherIdState] = useState(readStoredTeacherId);
 
   useEffect(() => {
+    // Don't subscribe to Firestore until auth has finished initializing.
+    if (authLoading) return;
+
     let cancelled = false;
-    const onErr = (err) => setFirestoreError(err?.message || 'Firestore error');
+    const onErr = (err) => {
+      const msg = err?.message || String(err || 'Firestore error');
+      if (/permission/i.test(msg)) {
+        setFirestoreError(
+          'Permission denied when accessing Firestore. Confirm your Firebase project and Firestore rules allow reads for this authenticated user.'
+        );
+      } else {
+        setFirestoreError(msg);
+      }
+    };
     const wrap =
       (setter) =>
       (data) => {
@@ -50,16 +64,25 @@ export function PdDataProvider({ children, groupCode = '' }) {
       // keep app usable even if migration is blocked by rules
     });
 
+    // Only subscribe if user is logged in; otherwise keep empty lists.
+    if (!userLoggedIn) {
+      setTeachers([]);
+      setEvents([]);
+      setSignups([]);
+      setFirestoreError(null);
+      return;
+    }
+
     const unsubTeachers = subscribeTeachers(wrap(setTeachers), onErr, { groupCode });
     const unsubEvents = subscribeEvents(wrap(setEvents), onErr, { groupCode });
     const unsubSignups = subscribeEventSignups(wrap(setSignups), onErr, { groupCode });
     return () => {
       cancelled = true;
-      unsubTeachers();
-      unsubEvents();
-      unsubSignups();
+      try { unsubTeachers(); } catch (e) {}
+      try { unsubEvents(); } catch (e) {}
+      try { unsubSignups(); } catch (e) {}
     };
-  }, [groupCode]);
+  }, [groupCode, authLoading, userLoggedIn]);
 
   useEffect(() => {
     if (!groupCode) return;
